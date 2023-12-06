@@ -1,0 +1,19 @@
+{
+  "name": "com.pluginset.hybridclr",
+  "displayName": "PluginSet HybridCLR",
+  "version": "1.0.0",
+  "unity": "2020.3",
+  "description": "Use HybridCLR in pluginSet.",
+  "keywords": [
+    "pluginset",
+    "HybridCLR"
+  ],
+  "dependencies": {
+    "com.pluginset.core": "1.0.0",
+    "com.code-philosophy.hybridclr": "4.0.10"
+  },
+  "author": {
+    "name": "LyneXiao",
+    "email": "lixonxs@icloud.com"
+  }
+}
