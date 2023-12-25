@@ -29,7 +29,11 @@ namespace PluginSet.HybridCLR.Editor
             if (enable)
             {
                 var level = PlayerSettings.GetApiCompatibilityLevel(context.BuildTargetGroup);
+#if UNITY_2021_1_OR_NEWER
                 var targetLevel = ApiCompatibilityLevel.NET_Unity_4_8;
+#else
+                var targetLevel = ApiCompatibilityLevel.NET_4_6;
+#endif
                 if (level != targetLevel)
                 {
                     Debug.LogWarning($"API Compatibility Level must be {targetLevel} for HybridCLR, but is {level}");
