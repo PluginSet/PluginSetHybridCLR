@@ -74,7 +74,10 @@ namespace PluginSet.HybridCLR
             {
                 // 加载assembly对应的dll，会自动为它hook。一旦aot泛型函数的native函数不存在，用解释器版本代码
                 LoadImageErrorCode err = RuntimeApi.LoadMetadataForAOTAssembly(data, mode);
-                Debug.LogWarning($"LoadMetadataForAOTAssembly mode:{mode} ret:{err}");
+                if (err != LoadImageErrorCode.OK)
+                    Debug.LogWarning($"LoadMetadataForAOTAssembly mode:{mode} ret:{err}");
+                else
+                    Debug.Log($"LoadMetadataForAOTAssembly mode:{mode} ret:{err}");
             }
         }
 
@@ -90,15 +93,12 @@ namespace PluginSet.HybridCLR
         
         protected virtual Assembly LoadAssemblyInternal(string name)
         {
+#if UNITY_EDITOR
+            return LoadAssemblyInDomain(name);
+#endif
             var data = LoadAssemblyBytes(name);
             if (data == null)
-            {
-#if UNITY_EDITOR
-                return LoadAssemblyInDomain(name);
-#else
                 throw new Exception($"Assembly {name} not found");
-#endif
-            }
             
             return Assembly.Load(data);
         }

@@ -14,17 +14,17 @@ namespace PluginSet.HybridCLR
 
         protected override IEnumerable<byte[]> LoadAOTMetadataBytes()
         {
-            var bundle = ResourcesManager.Instance.LoadBundle(HybridAOTMetadataPathName);
-            if (bundle == null)
-                return EmptyBytesList;
-            
-            var assets = bundle.LoadAllAssets<TextAsset>();
-            return assets.Select(asset => asset.bytes);
+            var bytes = ResourcesManager.Instance.ReadFile(HybridAOTMetadataPathName);
+            if (bytes != null)
+                return AOTMetaDataBytesHelper.SplitBytes(bytes);
+
+            return EmptyBytesList;
         }
 
         protected override byte[] LoadAssemblyBytes(string name)
         {
-            var bundle = ResourcesManager.Instance.LoadBundle(HybridCLRBundlePrefix + name);
+            var bundleName = HybridCLRBundlePrefix + name;
+            var bundle = ResourcesManager.Instance.LoadBundle(bundleName.ToLower());
             if (bundle == null)
                 return null;
             

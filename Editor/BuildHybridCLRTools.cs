@@ -76,9 +76,14 @@ namespace PluginSet.HybridCLR.Editor
             AssetDatabase.Refresh();
         }
 
-        [BuildPrepareCallback]
-        public static void OnBuildPrepare(BuildProcessorContext context, string exportPath)
+        [OnSyncEditorSetting(int.MaxValue)]
+        public static void OnBuildPrepare(BuildProcessorContext context)
         {
+            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
+            var enable = buildParams.Enable;
+            if (!enable)
+                return;
+            
             CompileDllCommand.CompileDll(context.BuildTarget);
             LinkGeneratorCommand.GenerateLinkXml(context.BuildTarget);
         }
@@ -103,15 +108,80 @@ namespace PluginSet.HybridCLR.Editor
             AssetDatabase.Refresh();
         }
 
-        // TODO
-        public static void SaveAOTMetadataUnionBytes(BuildProcessorContext context)
+        [OnBuildPatches(int.MinValue)]
+        public static void PreparePatches(BuildProcessorContext context)
+        {
+            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
+            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+                return;
+            
+            // 生成裁剪后的aot dll
+            StripAOTDllCommand.GenerateStripedAOTDlls(context.BuildTarget);
+        }
+
+        [OnBuildBundlesCompleted]
+        public static void OnBuildBundlesCompleted(BuildProcessorContext context, string streamingPath,
+            string streamingName, AssetBundleManifest manifest, bool patchBundle = false)
+        {
+            if (!patchBundle)
+                return;
+            
+            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
+            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+                return;
+
+            SaveAOTMetadataUnionBytes(context, streamingPath, true);
+        }
+
+        [BuildProjectCompleted]
+        public static void OnProjectBuildCompleted(BuildProcessorContext context, string exportPath)
+        {
+            HybridWorkAfterProjectExport(context.BuildTarget, exportPath);
+            
+            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>(); 
+            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+                return;
+            
+            var assetPath = Global.GetProjectAssetsPath(context.BuildTarget, exportPath);
+            if (string.IsNullOrEmpty(assetPath))
+                return;
+            
+            SaveAOTMetadataUnionBytes(context, assetPath, false);
+        }
+
+        private static void HybridWorkAfterProjectExport(BuildTarget target, string exportPath)
+        {
+            Il2CppDefGeneratorCommand.GenerateIl2CppDef();
+            // 桥接函数生成依赖于AOT dll，必须保证已经build过，生成AOT dll
+            MethodBridgeGeneratorCommand.GenerateMethodBridge(target);
+            ReversePInvokeWrapperGeneratorCommand.GenerateReversePInvokeWrapper(target);
+
+            string projectIl2CPPPath;
+            if (target == BuildTarget.Android)
+            {
+                projectIl2CPPPath = Path.Combine(exportPath, "unityLibrary", "src", "main", "Il2CppOutputProject", "IL2CPP", "libil2cpp");
+            }
+            else if (target == BuildTarget.iOS)
+            {
+                projectIl2CPPPath = Path.Combine(exportPath, "Libraries", "libil2cpp", "include");
+            }
+            else
+            {
+                return;
+            }
+            
+            var srcPath = Path.Combine(SettingsUtil.LocalIl2CppDir, "libil2cpp");
+            Directory.Delete(projectIl2CPPPath, true);
+            Global.CopyFilesTo(projectIl2CPPPath, srcPath, "*.*");
+        }
+
+        private static void SaveAOTMetadataUnionBytes(BuildProcessorContext context, string streamingPath, bool enableWriteManifest = false)
         {
             var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
             if (!buildParams.Enable || !buildParams.UseDefaultLoader)
                 return;
-            
-            var assetPath = buildParams.HotFixAssetsPath; // TODO
-            
+
+            var fileName = HybridCLRDefaultLoader.HybridAOTMetadataPathName;
             var gs = SettingsUtil.HybridCLRSettings;
             List<string> hotUpdateDllNames = SettingsUtil.HotUpdateAssemblyNamesExcludePreserved;
 
@@ -127,15 +197,22 @@ namespace PluginSet.HybridCLR.Editor
                 analyzer.Run();
 
                 var bytes = new List<byte[]>();
+                var fileNames = new List<string>();
                 foreach (var name in ReferenceModules(analyzer.AotGenericTypes, analyzer.AotGenericMethods))
                 {
+                    fileNames.Add(name);
                     bytes.Add(File.ReadAllBytes(Path.Combine(aotOutputPath, name)));
                 }
                 
+                if (enableWriteManifest)
+                    File.WriteAllLines(Path.Combine(streamingPath, fileName + ".manifest"), fileNames);
+                
                 var unionBytes = AOTMetaDataBytesHelper.UnionBytes(bytes.ToArray());
-                var unionBytesPath = Path.Combine(assetPath, $"{HybridCLRDefaultLoader.HybridAOTMetadataPathName}.bytes");
+                var unionBytesPath = Path.Combine(streamingPath, fileName);
                 File.WriteAllBytes(unionBytesPath, unionBytes);
             }
+            
+            context.ExtendStreamingFiles(fileName);
         }
 
         private static IEnumerable<string> ReferenceModules(List<GenericClass> types, List<GenericMethod> methods)
@@ -152,7 +229,7 @@ namespace PluginSet.HybridCLR.Editor
             {
                 var dllPath = $"{dllsPath}/{assemblyName}.dll";
                 var assetPath = $"{hotfixSavePath}/{assemblyName}.bytes";
-                FileUtil.CopyFileOrDirectory(dllPath, assetPath);
+                Global.CheckAndCopyFile(dllPath, assetPath);
                 
                 context.AddBuildBundle(HybridCLRDefaultLoader.HybridCLRBundlePrefix + assemblyName, Global.GetAssetPath(assetPath));
             }

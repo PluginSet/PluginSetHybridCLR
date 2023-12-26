@@ -26,12 +26,17 @@ namespace PluginSet.HybridCLR.Editor
 
         public bool Enable => (HotUpdateAssemblies != null && HotUpdateAssemblies.Length > 0) ||
                          (HotUpdateAssemblyDefinitions != null && HotUpdateAssemblyDefinitions.Length > 0);
-
-        [Tooltip("热更新文件保存路径")]
-        [FolderDrag]
-        public string HotFixAssetsPath;
         
         [Tooltip("是否使用默认的热更新加载器")]
         public bool UseDefaultLoader = true;
+
+        [Tooltip("热更新文件保存路径")]
+        [FolderDrag]
+        [VisibleCaseBoolValue("UseDefaultLoader", true)]
+        public string HotFixAssetsPath;
+
+        [Tooltip("是否复制AOT数据")]
+        [VisibleCaseBoolValue("UseDefaultLoader", true)]
+        public bool CopyAOTDatas = true;
     }
 }
