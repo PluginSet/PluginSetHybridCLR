@@ -136,11 +136,14 @@ namespace PluginSet.HybridCLR.Editor
         [BuildProjectCompleted]
         public static void OnProjectBuildCompleted(BuildProcessorContext context, string exportPath)
         {
+            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
+            if (!buildParams.Enable)
+                return;
+            
             if (context.BuildTarget == BuildTarget.Android)
                 HybridWorkAfterProjectExport(context.BuildTarget, exportPath);
             
-            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>(); 
-            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+            if (!buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
                 return;
             
             var assetPath = Global.GetProjectAssetsPath(context.BuildTarget, exportPath);
