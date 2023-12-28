@@ -80,8 +80,7 @@ namespace PluginSet.HybridCLR.Editor
         public static void OnBuildPrepare(BuildProcessorContext context)
         {
             var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
-            var enable = buildParams.Enable;
-            if (!enable)
+            if (!buildParams.Enable || buildParams.Empty)
                 return;
             
             CompileDllCommand.CompileDll(context.BuildTarget);
@@ -93,7 +92,7 @@ namespace PluginSet.HybridCLR.Editor
         public static void OnBuildBundles(BuildProcessorContext context)
         {
             var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
-            if (!buildParams.Enable || !buildParams.UseDefaultLoader)
+            if (!buildParams.Enable || buildParams.Empty || !buildParams.UseDefaultLoader)
                 return;
 
             var assetPath = buildParams.HotFixAssetsPath;
@@ -112,7 +111,7 @@ namespace PluginSet.HybridCLR.Editor
         public static void PreparePatches(BuildProcessorContext context)
         {
             var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
-            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+            if (!buildParams.Enable || buildParams.Empty || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
                 return;
             
             // 生成裁剪后的aot dll
@@ -127,7 +126,7 @@ namespace PluginSet.HybridCLR.Editor
                 return;
             
             var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
-            if (!buildParams.Enable || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+            if (!buildParams.Enable || buildParams.Empty || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
                 return;
 
             SaveAOTMetadataUnionBytes(context, streamingPath, true);
@@ -143,7 +142,7 @@ namespace PluginSet.HybridCLR.Editor
             if (context.BuildTarget == BuildTarget.Android)
                 HybridWorkAfterProjectExport(context.BuildTarget, exportPath);
             
-            if (!buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
+            if (buildParams.Empty || !buildParams.UseDefaultLoader || !buildParams.CopyAOTDatas)
                 return;
             
             var assetPath = Global.GetProjectAssetsPath(context.BuildTarget, exportPath);
@@ -181,10 +180,6 @@ namespace PluginSet.HybridCLR.Editor
 
         private static void SaveAOTMetadataUnionBytes(BuildProcessorContext context, string streamingPath, bool enableWriteManifest = false)
         {
-            var buildParams = context.BuildChannels.Get<BuildHybridCLRParams>();
-            if (!buildParams.Enable || !buildParams.UseDefaultLoader)
-                return;
-
             var fileName = HybridCLRDefaultLoader.HybridAOTMetadataPathName;
             var gs = SettingsUtil.HybridCLRSettings;
             List<string> hotUpdateDllNames = SettingsUtil.HotUpdateAssemblyNamesExcludePreserved;
